@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerador Inteligente de Jogos de Loteria</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    h1 { color: #2c3e50; }
+    button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+    input, select { margin: 5px 0; }
+    .resultado { background: #fff; padding: 15px; margin-top: 20px; border-radius: 8px; }
+    .jogo { font-size: 18px; margin: 5px 0; }
+    .sorteio { font-size: 16px; color: #555; margin: 3px 0; }
+  </style>
+</head>
+<body>
+  <h1>🎲 Gerador Inteligente de Jogos de Loteria</h1>
+  <p>Carregue os arquivos de resultados históricos, veja os últimos 5 sorteios e escolha quantos jogos deseja gerar (1 a 10).</p>
+
+  <h3>Upload de Arquivos</h3>
+  <label>Mega-Sena:</label><br>
+  <input type="file" id="megaFile" accept=".xlsx,.csv"><br>
+  <select id="megaQtd">
+    <option value="1">1 jogo</option><option value="2">2 jogos</option><option value="3">3 jogos</option>
+    <option value="4">4 jogos</option><option value="5">5 jogos</option><option value="6">6 jogos</option>
+    <option value="7">7 jogos</option><option value="8">8 jogos</option><option value="9">9 jogos</option>
+    <option value="10">10 jogos</option>
+  </select><br><br>
+
+  <label>Lotofácil:</label><br>
+  <input type="file" id="lotoFile" accept=".xlsx,.csv"><br>
+  <select id="lotoQtd">
+    <option value="1">1 jogo</option><option value="2">2 jogos</option><option value="3">3 jogos</option>
+    <option value="4">4 jogos</option><option value="5">5 jogos</option><option value="6">6 jogos</option>
+    <option value="7">7 jogos</option><option value="8">8 jogos</option><option value="9">9 jogos</option>
+    <option value="10">10 jogos</option>
+  </select><br><br>
+
+  <label>Quina:</label><br>
+  <input type="file" id="quinaFile" accept=".xlsx,.csv"><br>
+  <select id="quinaQtd">
+    <option value="1">1 jogo</option><option value="2">2 jogos</option><option value="3">3 jogos</option>
+    <option value="4">4 jogos</option><option value="5">5 jogos</option><option value="6">6 jogos</option>
+    <option value="7">7 jogos</option><option value="8">8 jogos</option><option value="9">9 jogos</option>
+    <option value="10">10 jogos</option>
+  </select><br><br>
+
+  <button onclick="gerarSugestoes()">Gerar Sugestões</button>
+  <button onclick="window.print()">🖨️ Imprimir Jogos</button>
+  
+  <div id="resultado" class="resultado"></div>
+
+  <script>
+    let megaData = [], lotoData = [], quinaData = [];
+
+    function lerArquivo(event, tipo) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, {header:1});
+        if (tipo === "mega") megaData = json;
+        if (tipo === "loto") lotoData = json;
+        if (tipo === "quina") quinaData = json;
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    document.getElementById("megaFile").addEventListener("change", e => lerArquivo(e, "mega"));
+    document.getElementById("lotoFile").addEventListener("change", e => lerArquivo(e, "loto"));
+    document.getElementById("quinaFile").addEventListener("change", e => lerArquivo(e, "quina"));
+
+    function calcularFrequencia(data) {
+      const freq = {};
+      data.forEach(row => {
+        row.forEach(num => {
+          if (!isNaN(num)) {
+            freq[num] = (freq[num] || 0) + 1;
+          }
+        });
+      });
+      return Object.entries(freq).sort((a,b) => b[1]-a[1]).map(e => parseInt(e[0]));
+    }
+
+    function gerarJogos(freq, qtdNumeros, max, qtdJogos) {
+      const jogos = [];
+      for (let i=0; i<qtdJogos; i++) {
+        let jogo = [];
+        for (let j=0; j<qtdNumeros; j++) {
+          if (j < freq.length) {
+            jogo.push(freq[(i+j) % freq.length]);
+          } else {
+            jogo.push(Math.floor(Math.random() * max) + 1);
+          }
+        }
+        jogos.push(jogo.sort((a,b)=>a-b));
+      }
+      return jogos;
+    }
+
+    function mostrarUltimosSorteios(data, qtdNumeros, titulo) {
+      let ultimos = data.slice(-5); // pega os últimos 5 sorteios
+      let html = `<h3>Últimos 5 sorteios (${titulo})</h3>`;
+      ultimos.forEach((row,i) => {
+        let nums = row.filter(n => !isNaN(n));
+        html += `<div class="sorteio">Concurso ${data.length-5+i+1}: ${nums.join(", ")}</div>`;
+      });
+      return html;
+    }
+
+    function gerarSugestoes() {
+      const resultado = document.getElementById("resultado");
+      resultado.innerHTML = "";
+
+      if (megaData.length) {
+        const freqMega = calcularFrequencia(megaData);
+        const qtdMega = parseInt(document.getElementById("megaQtd").value);
+        const jogosMega = gerarJogos(freqMega, 6, 60, qtdMega);
+        resultado.innerHTML += "<h2>Mega-Sena</h2>";
+        resultado.innerHTML += mostrarUltimosSorteios(megaData, 6, "Mega-Sena");
+        jogosMega.forEach((jogo,i)=>resultado.innerHTML += `<div class="jogo">Sugestão ${i+1}: ${jogo.join(", ")}</div>`);
+      }
+
+      if (lotoData.length) {
+        const freqLoto = calcularFrequencia(lotoData);
+        const qtdLoto = parseInt(document.getElementById("lotoQtd").value);
+        const jogosLoto = gerarJogos(freqLoto, 15, 25, qtdLoto);
+        resultado.innerHTML += "<h2>Lotofácil</h2>";
+        resultado.innerHTML += mostrarUltimosSorteios(lotoData, 15, "Lotofácil");
+        jogosLoto.forEach((jogo,i)=>resultado.innerHTML += `<div class="jogo">Sugestão ${i+1}: ${jogo.join(", ")}</div>`);
+      }
+
+      if (quinaData.length) {
+        const freqQuina = calcularFrequencia(quinaData);
+        const qtdQuina = parseInt(document.getElementById("quinaQtd").value);
+        const jogosQuina = gerarJogos(freqQuina, 5, 80, qtdQuina);
+        resultado.innerHTML += "<h2>Quina</h2>";
+        resultado.innerHTML += mostrarUltimosSorteios(quinaData, 5, "Quina");
+        jogosQuina.forEach((jogo,i)=>resultado.innerHTML += `<div class="jogo">Sugestão ${i+1}: ${jogo.join(", ")}</div>`);
+      }
+    }
+  </script>
+</body>
+</html>
